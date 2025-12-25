@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.Linq;
+using System.Net;
+using System.Reflection;
 using TriInspectorUnityInternalBridge;
 using TriInspector.Utilities;
 using UnityEditor;
@@ -31,6 +33,7 @@ namespace TriInspector.Elements
 
         public TriListElement(TriProperty property)
         {
+            
             property.TryGetAttribute(out ListDrawerSettingsAttribute settings);
 
             _property = property;
@@ -52,10 +55,52 @@ namespace TriInspector.Elements
                 onReorderCallbackWithDetails = ReorderCallback,
             };
 
+            if (settings?.MethodName is not null)
+            {
+                var methodInfo = FindMethod(property, settings?.MethodName);
+
+                if (methodInfo is not null)
+                {
+                    property.TryGetSerializedProperty(out var serializedProperty);
+
+                    void OnSelectCallback(ReorderableList _) => methodInfo.Invoke(
+                        serializedProperty.serializedObject.targetObject, new object[] {GetSelectedIndex()});
+
+                    _reorderableListGui.onSelectCallback = OnSelectCallback;
+                }
+            }
+
             if (!_reorderableListGui.displayAdd && !_reorderableListGui.displayRemove)
             {
                 _reorderableListGui.footerHeight = 0f;
             }
+        }
+
+        private int GetSelectedIndex() => _reorderableListGui.index;
+
+        private MethodInfo FindMethod(TriProperty prop, string methodName)
+        {
+            var canGetProp = prop.TryGetSerializedProperty(out var serializedProperty);
+
+            if (!canGetProp)
+            {
+                Debug.Log("Cannot get prop");
+                return null;
+            }
+            
+            if (serializedProperty.serializedObject.targetObject is null)
+            {
+                Debug.Log("Null target object");
+                return null;
+            }
+            
+            var parentType = serializedProperty.serializedObject.targetObject.GetType();
+            var findMethod = parentType.GetMethods(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy | BindingFlags.Static).Where(m => m.Name == methodName).ToList();
+
+            if (findMethod.Count <= 0)
+                return null;
+            
+            return findMethod[0];
         }
 
         public override bool Update()

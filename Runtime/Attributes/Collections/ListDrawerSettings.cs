@@ -14,5 +14,8 @@ namespace TriInspector
         public bool ShowElementLabels { get; set; }
         public bool ShowDefaultBackground { get; set; } = true;
         public bool ShowAlternatingBackground { get; set; } = true;
+
+        public string MethodName { get; set; } = null;
+
     }
 }
